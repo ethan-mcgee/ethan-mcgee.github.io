@@ -1,0 +1,56 @@
+---
+title: WaterFlex Technician Scheduler
+summary: A booking and dispatch scheduler that offers customers real arrival windows and plans each technician's day on real roads, behind a public API.
+role: Freelance · sole developer
+dates: Sep 2026 – Present
+stack: [Java, Spring Boot, Timefold, TypeScript, Next.js, PostgreSQL, GraphHopper, Docker]
+repo: https://github.com/ethan-mcgee/waterflex-scheduler-java
+order: 1
+---
+
+## The problem
+
+WaterFlex sends field technicians to customers' homes across the Omaha metro and to dealerships in other metros. Booking a visit meant a phone call. WaterFlex wanted customers to pick a service, enter an address, and see three or four arrival windows the company could actually keep. Dispatchers also needed each technician's day planned on real road times, and that plan had to be repairable when something changed.
+
+## What I built
+
+- **A scheduling API** (`/api/v1`) that WaterFlex's own software calls. The host sends a snapshot of its technicians and appointments and gets back booking offers, daily route proposals, or repair proposals.
+- **An optimization engine** built on the Timefold solver. It models technicians, shifts, qualifications, arrival windows and travel time, and an independent route evaluator rechecks every result before it is returned.
+- **Self-hosted routing and maps.** Each metro gets its own GraphHopper routing service built from OpenStreetMap, with Nominatim for address lookup and PMTiles for map tiles. The system needs no paid mapping or geocoding API.
+- **A customer and dispatch portal** in Next.js, where customers book and staff manage technicians, dealerships, time off and solver settings. It is the first client of the public API.
+
+## Architecture
+
+```text
+ portal (Next.js)                       WaterFlex Software
+      |                                        |
+      +-------------- /api/v1 ----------------+
+                         |
+            scheduler-service (Spring Boot)
+              |  calculation engine (Timefold), embedded
+              |  thin store: holds, offers, receipts (Postgres)
+              |
+              +-- routing-service (GraphHopper), one per metro
+              +-- Nominatim (address lookup)
+```
+
+## Decisions worth explaining
+
+**Stateless calculation with a thin store.** WaterFlex Software remains the source of truth for customers, jobs and technicians. The scheduler keeps only what it needs to keep promises safe when many customers book at once: booking holds, the offers it issued, and receipts. Each request carries a complete snapshot, so the solver and routing services are pure functions: data in, results out.
+
+**Measuring before scaling.** The solver first ran as a separate pool of services. I load-tested it against an embedded solver, and the remote version cost 1.5 times as much per booking search. I removed the remote pool and run the solver inside each scheduler instance instead.
+
+**The contract is tested.** The API is described in an OpenAPI 3.1 document. A test validates every example in it against its schema, and fails if the operations marked as implemented differ from the routes the service actually serves.
+
+**Rewriting the prototype.** The first version was Python, with FastAPI and Google OR-Tools beside a Next.js app sharing one database. It proved the idea in two weeks, but it coupled the engine to the portal's schema. The rewrite split the system into separately deployable services with their own data.
+
+## Operating it
+
+The production stack runs with Docker Compose on a private VM: separate scheduler pools for booking and for daily planning behind an Nginx proxy, Flyway migrations, and health and Prometheus endpoints. GitHub Actions runs the build and tests, and Dependabot keeps base images current.
+
+## Results
+
+{/* TODO: add numbers you can stand behind, e.g. booking search latency, routes planned per day, or a dispatcher quote. */}
+
+- 780+ commits over three months as the sole developer.
+- Booking offers, daily route proposals and repair proposals are all served through one versioned API.

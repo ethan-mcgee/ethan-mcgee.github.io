@@ -1,0 +1,51 @@
+---
+title: WaterFlex Salt Monitor
+summary: An IoT system that measures salt levels in customers' water softeners and opens delivery tickets before anyone runs out, from ESP32 firmware to a staff console.
+role: Freelance · sole developer
+dates: Jul 2026 – Oct 2026
+stack: [C#, .NET, C++, ESP32, React, TypeScript, PostgreSQL, AWS, Docker]
+repo: https://github.com/ethan-mcgee/waterflex-salt
+order: 2
+---
+
+## The problem
+
+Water softeners need salt refilled, and customers rarely notice until the tank is empty. WaterFlex wanted to know each tank's level and schedule a delivery before that happened, without relying on customers to call.
+
+## What I built
+
+- **Firmware** for an Arduino Nano ESP32 mounted in the salt tank. It reads fill level from an ultrasonic distance sensor, sets up Wi-Fi through a captive-portal setup page, and uploads readings in batches over HTTPS.
+- **A .NET backend** with an API and a background worker. It ingests telemetry, tracks device and tank health, evaluates low-salt rules, and opens WaterFlex delivery tickets automatically.
+- **An internal ops console** in React and TypeScript, where staff provision new sensors, watch fleet health and manage alerts.
+
+## Architecture
+
+```text
+ firmware (ESP32) --HTTPS--> backend API <--- worker (alerts, ticket outbox)
+                                  |
+                              PostgreSQL
+                                  ^
+                                  |
+                       ops console (React, staff only)
+```
+
+The backend is eight projects in layers. A dependency-free domain core sits at the bottom, with ingestion, rules and provisioning built on it. Only the infrastructure layer touches the database, and the API and worker are thin entry points on top.
+
+## Decisions worth explaining
+
+**Never trust the device.** Each sensor authenticates with its own credential, but the server alone decides which customer, tank and calibration a reading belongs to. A tampered or misconfigured device can't write data into someone else's account.
+
+**Readings can't be lost or doubled.** Home Wi-Fi drops. The firmware queues readings in flash and retries, and every upload is idempotent, so a retry never creates a duplicate reading.
+
+**Tickets go through an outbox.** Low-salt alerts don't call the ticketing system directly. They write a delivery request to an outbox, and the background worker sends it, so an outage on the ticketing side delays tickets instead of losing them.
+
+**Commissioning is a state machine.** Installing a sensor spans a technician's phone, the device and the server. The console tracks it as an explicit sequence (waiting for sensor, activated, awaiting first reading, completed) that is driven by the server, so a refreshed page or a second device always shows the true state.
+
+## Shipping it
+
+GitHub Actions builds and tests the firmware, backend and console, and builds container images. Changes on `main` publish images to Amazon ECR and deploy to staging through AWS Systems Manager after an approval step. Runbooks cover the field pilot, restores and incidents.
+
+## Results
+
+{/* TODO: add pilot numbers if you have them, e.g. sensors deployed or tickets opened automatically. */}
+

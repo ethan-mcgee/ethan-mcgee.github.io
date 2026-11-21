@@ -1,0 +1,36 @@
+---
+title: Running Large Language Models on One Consumer GPU
+summary: A benchmark harness comparing three ways to run Llama 3.1 8B and Qwen3 14B on a single RTX 3090 Ti, with every measurement kept fair and reproducible.
+role: Capstone project
+dates: Sep 2026
+stack: [Python, PyTorch, Hugging Face Transformers, AirLLM, CUDA]
+repo: https://github.com/ethan-mcgee/Capstone
+order: 3
+---
+
+## The question
+
+How large a language model can you run on one consumer graphics card, and what does it cost in speed? A 14-billion-parameter model doesn't fit in 24 GB of video memory at full precision, so something has to give.
+
+## What I built
+
+A single script that runs the same prompt through either model in one of three modes:
+
+| Mode | How it works |
+| --- | --- |
+| Resident | The whole model loads onto the GPU in 8-bit precision. Fastest, but it needs the most memory. |
+| Streamed | AirLLM loads one layer at a time from disk. Very little memory, but much slower. |
+| Hybrid | The first part of the model stays on the GPU at full precision and the rest is streamed, with the next layer prefetched while the current one runs. |
+
+## Making the comparison fair
+
+- Every run uses the same prompt, token limits and deterministic decoding, so differences come only from the runtime.
+- Generation speed is timed only around generation itself, with the GPU synchronized before and after, so loading time doesn't inflate the result.
+- Before loading anything in hybrid mode, the script measures the real size of the model files and checks that they fit in free GPU memory. If they don't, it reports why and stops, rather than quietly falling back to a different mode that would skew the comparison.
+- Exact library versions are pinned and each model's files are stored separately, so runs are reproducible.
+
+## Results
+
+{/* TODO: run the three modes on your 3090 Ti and add a table: tokens per second and peak memory for each. Numbers make this project much stronger. */}
+
+Benchmark results are in progress.
