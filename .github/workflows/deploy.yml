@@ -23,6 +23,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Match the npm that wrote package-lock.json; Node 22's bundled npm 10 resolves peer deps differently.
+      - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
